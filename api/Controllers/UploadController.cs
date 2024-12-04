@@ -1,6 +1,7 @@
 ﻿using CloudinaryDotNet.Actions;
 using CloudinaryDotNet;
 using Microsoft.AspNetCore.Mvc;
+using static System.Net.Mime.MediaTypeNames;
 
 namespace api.Controllers
 {
@@ -16,15 +17,32 @@ namespace api.Controllers
         }
 
         [HttpPost]
-        public async Task<IActionResult> UploadImage(IFormFile file)
+        public async Task<IActionResult> UploadImage(IFormFile imagem)
         {
-            var uploadParams = new ImageUploadParams()
-            {
-                File = new FileDescription(file.FileName, file.OpenReadStream())
-            };
-            var uploadResult = await _cloudinary.UploadAsync(uploadParams);
+            string fileName = imagem.FileName;
 
-            return Ok(new { url = uploadResult.SecureUrl });
+            byte[] imagemBytes;
+            using (var memoryStream = new MemoryStream())
+            {
+                await imagem.CopyToAsync(memoryStream);
+                imagemBytes = memoryStream.ToArray();
+            }
+
+            using (var memoryStream = new MemoryStream(imagemBytes))
+            {
+                var uploadParams = new ImageUploadParams()
+                {
+                    File = new FileDescription(fileName, memoryStream)
+                };
+                var uploadResult = await _cloudinary.UploadAsync(uploadParams);
+
+                if (uploadResult.StatusCode != System.Net.HttpStatusCode.OK)
+                {
+                    return StatusCode((int)uploadResult.StatusCode, "Erro ao carregar a imagem.");
+                }
+
+                return Ok(new { url = uploadResult.SecureUrl });
+            }
         }
     }
 
